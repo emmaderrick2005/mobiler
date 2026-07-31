@@ -1,6 +1,9 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const morgan = require("morgan");
+const rateLimit = require("express-rate-limit");
 const http = require("http");
 const { Server } = require("socket.io");
 
@@ -18,11 +21,24 @@ const io = new Server(server, {
 });
 sockets.init(io);
 
+app.set("trust proxy", 1);
+// Verification document images are served cross-origin from the API, so the
+// default cross-origin-resource-policy would block the client from loading them.
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:5173" }));
 app.use(express.json());
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Please try again later." },
+});
+
 app.get("/health", (req, res) => res.json({ ok: true }));
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/agents", agentRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/verification", verificationRoutes);

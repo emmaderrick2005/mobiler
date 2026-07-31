@@ -24,10 +24,11 @@ async function issueOtp(userId, phone) {
       expiresAt: new Date(Date.now() + otp.OTP_TTL_MS),
     },
   });
-  otp.sendOtpSms(phone, code);
-  // No SMS provider is wired up yet, so hand the code back to the client in
-  // non-production so the flow is actually testable end to end.
-  return process.env.NODE_ENV === "production" ? undefined : code;
+  await otp.sendOtpSms(phone, code);
+  // Hand the code back to the client only when explicitly opted into (see
+  // otp.devCodeEnabled) — lets the flow be tested without a real SMS
+  // account, without leaking codes once deployed for real users.
+  return otp.devCodeEnabled() ? code : undefined;
 }
 
 router.post("/register", async (req, res) => {
