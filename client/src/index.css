@@ -334,6 +334,7 @@ button:disabled {
 .call-button {
   display: inline-block;
   margin-top: 6px;
+  margin-right: 8px;
   padding: 8px 14px;
   border-radius: 8px;
   background: #22c55e;
@@ -341,6 +342,12 @@ button:disabled {
   font-weight: 600;
   font-size: 14px;
   text-decoration: none;
+}
+
+.call-button.secondary {
+  background: var(--bg-alt);
+  color: var(--text-h);
+  border: 1px solid var(--border);
 }
 
 .countdown {

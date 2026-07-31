@@ -11,6 +11,10 @@ function formatMoney(n) {
   return Number(n).toLocaleString();
 }
 
+function directionsUrl(lat, lng) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+}
+
 function CountdownBadge({ deadline }) {
   const [secondsLeft, setSecondsLeft] = useState(() => Math.max(0, Math.round((new Date(deadline) - Date.now()) / 1000)));
 
@@ -189,6 +193,14 @@ function AgentDashboardContent({ location }) {
                     <a className="call-button" href={`tel:${r.customerContact.phone}`}>
                       Call {r.customerContact.phone}
                     </a>
+                    <a
+                      className="call-button secondary"
+                      href={directionsUrl(r.lat, r.lng)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Get directions
+                    </a>
                   </div>
                 )}
                 <CountdownBadge deadline={r.acceptDeadline} />
@@ -221,6 +233,14 @@ function AgentDashboardContent({ location }) {
                       onClick={() => markCalled(r.id)}
                     >
                       Call {r.customerContact.phone}
+                    </a>
+                    <a
+                      className="call-button secondary"
+                      href={directionsUrl(r.lat, r.lng)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Get directions
                     </a>
                   </div>
                 )}
