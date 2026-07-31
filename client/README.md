@@ -1,16 +1,36 @@
-# React + Vite
+# Mobiler — client
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + Vite frontend for Mobiler. See the [root README](../README.md) for
+the full project overview, architecture, and deployment instructions.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+cp .env.example .env   # set VITE_API_URL / VITE_SOCKET_URL
+npm install
+npm run dev             # http://localhost:5173
+```
 
-## React Compiler
+## Scripts
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- `npm run dev` — Vite dev server with HMR
+- `npm run build` — production build to `dist/`
+- `npm run preview` — serve the production build locally
+- `npm run lint` — Oxlint
 
-## Expanding the Oxlint configuration
+## Environment variables
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+| Variable | Description |
+|---|---|
+| `VITE_API_URL` | Base URL of the Mobiler API, e.g. `http://localhost:4000/api` |
+| `VITE_SOCKET_URL` | Base URL for the Socket.io connection, e.g. `http://localhost:4000` |
+
+Both are inlined into the build at build time — changing them requires a
+rebuild, not just a redeploy of static files.
+
+## Deployment
+
+Deployable as a static site (see `Dockerfile` + `nginx.conf` for the Docker
+Compose path, or `vercel.json` for Vercel). Either way, `VITE_API_URL` and
+`VITE_SOCKET_URL` must point at a running Mobiler server — see the root
+README for hosting that.
