@@ -38,7 +38,7 @@ export default function Login() {
       <div className="header-actions" style={{ justifyContent: "flex-end", marginBottom: 12 }}>
         <ThemeToggle />
       </div>
-      <h1>Cash Delivery</h1>
+      <h1>Mobiler</h1>
       <p className="subtitle">Sign in to request or fulfil cash orders</p>
       <form onSubmit={handleSubmit}>
         <label>Email</label>
