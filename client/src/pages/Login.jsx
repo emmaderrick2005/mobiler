@@ -49,6 +49,9 @@ export default function Login() {
         <button disabled={loading} type="submit">{loading ? "Signing in..." : "Sign in"}</button>
       </form>
       <p className="switch">
+        <Link to="/forgot-password">Forgot password?</Link>
+      </p>
+      <p className="switch">
         No account? <Link to="/register">Register</Link>
       </p>
       <p className="hint">Demo accounts: customer1@example.com / agent1@example.com (password123)</p>

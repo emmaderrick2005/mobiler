@@ -31,6 +31,52 @@ async function issueOtp(userId, phone) {
   return otp.devCodeEnabled() ? code : undefined;
 }
 
+async function checkResendCooldown(userId) {
+  const last = await prisma.phoneOtp.findFirst({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+  if (last && Date.now() - last.createdAt.getTime() < otp.RESEND_COOLDOWN_MS) {
+    const retryAfter = Math.ceil(
+      (otp.RESEND_COOLDOWN_MS - (Date.now() - last.createdAt.getTime())) / 1000
+    );
+    return { error: "Please wait before requesting another code", retryAfter };
+  }
+  return null;
+}
+
+// Validates the latest unconsumed OTP for a user against a submitted code.
+// On success, marks it consumed and returns the record; on failure, returns
+// { status, error } describing what went wrong (and bumps attempts when the
+// code itself was simply wrong).
+async function consumeOtp(userId, code) {
+  const record = await prisma.phoneOtp.findFirst({
+    where: { userId, consumedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!record) {
+    return { status: 400, error: "No pending code. Request a new one." };
+  }
+  if (record.expiresAt < new Date()) {
+    return { status: 400, error: "Code has expired. Request a new one." };
+  }
+  if (record.attempts >= otp.MAX_ATTEMPTS) {
+    return { status: 429, error: "Too many attempts. Request a new code." };
+  }
+
+  const valid = await otp.compareCode(String(code).trim(), record.codeHash);
+  if (!valid) {
+    await prisma.phoneOtp.update({
+      where: { id: record.id },
+      data: { attempts: { increment: 1 } },
+    });
+    return { status: 401, error: "Incorrect code" };
+  }
+
+  await prisma.phoneOtp.update({ where: { id: record.id }, data: { consumedAt: new Date() } });
+  return { record };
+}
+
 router.post("/register", async (req, res) => {
   const { name, email, phone, password, role } = req.body;
 
@@ -114,33 +160,10 @@ router.post("/verify-otp", async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return res.status(404).json({ error: "User not found" });
 
-  const record = await prisma.phoneOtp.findFirst({
-    where: { userId, consumedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
-  if (!record) {
-    return res.status(400).json({ error: "No pending code. Request a new one." });
-  }
-  if (record.expiresAt < new Date()) {
-    return res.status(400).json({ error: "Code has expired. Request a new one." });
-  }
-  if (record.attempts >= otp.MAX_ATTEMPTS) {
-    return res.status(429).json({ error: "Too many attempts. Request a new code." });
-  }
+  const result = await consumeOtp(userId, code);
+  if (result.error) return res.status(result.status).json({ error: result.error });
 
-  const valid = await otp.compareCode(String(code).trim(), record.codeHash);
-  if (!valid) {
-    await prisma.phoneOtp.update({
-      where: { id: record.id },
-      data: { attempts: { increment: 1 } },
-    });
-    return res.status(401).json({ error: "Incorrect code" });
-  }
-
-  await prisma.$transaction([
-    prisma.phoneOtp.update({ where: { id: record.id }, data: { consumedAt: new Date() } }),
-    prisma.user.update({ where: { id: user.id }, data: { phoneVerified: true } }),
-  ]);
+  await prisma.user.update({ where: { id: user.id }, data: { phoneVerified: true } });
 
   const token = signToken(user);
   res.json({
@@ -159,19 +182,53 @@ router.post("/resend-otp", async (req, res) => {
     return res.status(409).json({ error: "Phone is already verified" });
   }
 
-  const last = await prisma.phoneOtp.findFirst({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-  });
-  if (last && Date.now() - last.createdAt.getTime() < otp.RESEND_COOLDOWN_MS) {
-    const retryAfter = Math.ceil(
-      (otp.RESEND_COOLDOWN_MS - (Date.now() - last.createdAt.getTime())) / 1000
-    );
-    return res.status(429).json({ error: "Please wait before requesting another code", retryAfter });
-  }
+  const cooldown = await checkResendCooldown(userId);
+  if (cooldown) return res.status(429).json(cooldown);
 
   const devCode = await issueOtp(user.id, user.phone);
   res.json({ requiresOtp: true, userId: user.id, phone: user.phone, ...(devCode ? { devCode } : {}) });
+});
+
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "email is required" });
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) return res.status(404).json({ error: "No account with that email" });
+
+  const cooldown = await checkResendCooldown(user.id);
+  if (cooldown) return res.status(429).json(cooldown);
+
+  const devCode = await issueOtp(user.id, user.phone);
+  res.json({ requiresOtp: true, userId: user.id, phone: user.phone, ...(devCode ? { devCode } : {}) });
+});
+
+router.post("/reset-password", async (req, res) => {
+  const { userId, code, newPassword } = req.body;
+  if (!userId || !code || !newPassword) {
+    return res.status(400).json({ error: "userId, code, and newPassword are required" });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const result = await consumeOtp(userId, code);
+  if (result.error) return res.status(result.status).json({ error: result.error });
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash, phoneVerified: true },
+  });
+
+  const token = signToken(user);
+  res.json({
+    token,
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+  });
 });
 
 module.exports = router;

@@ -44,6 +44,19 @@ export function AuthProvider({ children }) {
     return data;
   }
 
+  async function forgotPassword(email) {
+    const { data } = await api.post("/auth/forgot-password", { email });
+    return data;
+  }
+
+  async function resetPassword(userId, code, newPassword) {
+    const { data } = await api.post("/auth/reset-password", { userId, code, newPassword });
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    setUser(data.user);
+    return data.user;
+  }
+
   function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -52,7 +65,9 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, verifyOtp, resendOtp, logout }}>
+    <AuthContext.Provider
+      value={{ user, login, register, verifyOtp, resendOtp, forgotPassword, resetPassword, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

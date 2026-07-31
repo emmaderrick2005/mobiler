@@ -5,20 +5,22 @@ import ThemeToggle from "../components/ThemeToggle";
 import { roleHome } from "../utils/roleHome";
 import { maskPhone } from "../utils/maskPhone";
 
-export default function VerifyOtp() {
-  const { verifyOtp, resendOtp } = useAuth();
+export default function ResetPassword() {
+  const { resetPassword, forgotPassword } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { userId, phone, devCode } = location.state || {};
+  const { userId, phone, email, devCode } = location.state || {};
 
   const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState(devCode ? `Dev mode: your code is ${devCode}` : "");
   const [submitting, setSubmitting] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
-    if (!userId) navigate("/login", { replace: true });
+    if (!userId) navigate("/forgot-password", { replace: true });
   }, [userId, navigate]);
 
   useEffect(() => {
@@ -30,12 +32,16 @@ export default function VerifyOtp() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
     setSubmitting(true);
     try {
-      const user = await verifyOtp(userId, code.trim());
+      const user = await resetPassword(userId, code.trim(), newPassword);
       navigate(roleHome(user.role), { replace: true });
     } catch (err) {
-      setError(err.response?.data?.error || "Could not verify code");
+      setError(err.response?.data?.error || "Could not reset password");
     } finally {
       setSubmitting(false);
     }
@@ -45,7 +51,7 @@ export default function VerifyOtp() {
     setError("");
     setInfo("");
     try {
-      const data = await resendOtp(userId);
+      const data = await forgotPassword(email);
       setInfo(data.devCode ? `Dev mode: your new code is ${data.devCode}` : "A new code was sent");
       setCooldown(60);
     } catch (err) {
@@ -61,9 +67,9 @@ export default function VerifyOtp() {
       <div className="header-actions" style={{ justifyContent: "flex-end", marginBottom: 12 }}>
         <ThemeToggle />
       </div>
-      <h1>Verify your phone</h1>
+      <h1>Reset password</h1>
       <p className="subtitle">
-        Enter the 6-digit code we sent to {maskPhone(phone)}
+        Enter the 6-digit code we sent to {maskPhone(phone)}, then choose a new password.
       </p>
       <form onSubmit={handleSubmit}>
         <label>Verification code</label>
@@ -76,10 +82,26 @@ export default function VerifyOtp() {
           placeholder="123456"
           required
         />
+        <label>New password</label>
+        <input
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          type="password"
+          minLength={6}
+          required
+        />
+        <label>Confirm new password</label>
+        <input
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          type="password"
+          minLength={6}
+          required
+        />
         {error && <p className="error">{error}</p>}
         {info && <p className="hint">{info}</p>}
         <button disabled={submitting || code.length !== 6} type="submit">
-          {submitting ? "Verifying..." : "Verify"}
+          {submitting ? "Resetting..." : "Reset password"}
         </button>
       </form>
       <p className="switch">
