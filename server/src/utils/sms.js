@@ -1,21 +1,21 @@
-// Thin wrapper around Africa's Talking so the rest of the app only ever
-// calls sendSms(phone, message) and doesn't care how delivery works.
+// Thin wrapper around Twilio so the rest of the app only ever calls
+// sendSms(phone, message) and doesn't care how delivery works.
 let cachedClient;
 
 function getClient() {
-  if (!process.env.AT_USERNAME || !process.env.AT_API_KEY) return null;
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) return null;
   if (!cachedClient) {
-    cachedClient = require("africastalking")({
-      username: process.env.AT_USERNAME,
-      apiKey: process.env.AT_API_KEY,
-    });
+    cachedClient = require("twilio")(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
   }
   return cachedClient;
 }
 
-// Africa's Talking needs E.164 (+<country><number>). Local numbers in this
-// app are entered like "0700000001"; default the country code to Uganda
-// (256) since the seed data and demo accounts are Kampala-based.
+// Twilio needs E.164 (+<country><number>). Local numbers in this app are
+// entered like "0700000001"; default the country code to Uganda (256)
+// since the seed data and demo accounts are Kampala-based.
 function normalizePhone(phone) {
   const trimmed = phone.replace(/[\s-]/g, "");
   if (trimmed.startsWith("+")) return trimmed;
@@ -28,10 +28,17 @@ async function sendSms(phone, message) {
   if (!client) {
     return { sent: false, reason: "no-provider-configured" };
   }
+  if (!process.env.TWILIO_FROM_NUMBER) {
+    return { sent: false, reason: "TWILIO_FROM_NUMBER not configured" };
+  }
   try {
     const to = normalizePhone(phone);
-    const response = await client.SMS.send({ to: [to], message });
-    return { sent: true, response };
+    const response = await client.messages.create({
+      to,
+      from: process.env.TWILIO_FROM_NUMBER,
+      body: message,
+    });
+    return { sent: true, response: { sid: response.sid, status: response.status } };
   } catch (err) {
     return { sent: false, reason: err.message };
   }
