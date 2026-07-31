@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  AGENT
+  ADMIN
+}
+
+enum VerificationStatus {
+  UNVERIFIED // hasn't submitted documents yet
+  PENDING // submitted, awaiting admin review
+  VERIFIED
+  REJECTED
+}
+
+enum RequestType {
+  WITHDRAW
+  DEPOSIT
+}
+
+enum Network {
+  AIRTEL
+  MTN
+}
+
+enum RequestStatus {
+  PENDING // created, matching in progress
+  ASSIGNED // offered to an agent, awaiting accept/decline
+  ACCEPTED // agent accepted, en route / meeting customer
+  COMPLETED // cash handed over, settled
+  UNMATCHED // no eligible agent found, waiting for retry
+  CANCELLED // customer cancelled
+}
+
+enum AttemptOutcome {
+  OFFERED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  phone         String
+  passwordHash  String
+  role          Role
+  // Existing rows default to true so demo/seed accounts created before OTP
+  // login existed aren't locked out; registration explicitly sets this false.
+  phoneVerified Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  agentProfile AgentProfile?
+  cashRequests CashRequest[] @relation("CustomerRequests")
+  phoneOtps    PhoneOtp[]
+}
+
+model PhoneOtp {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model AgentProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  lat         Float
+  lng         Float
+  radiusKm    Float    @default(5)
+  cashOnHand  Float    @default(0)
+  airtelFloat Float    @default(0)
+  mtnFloat    Float    @default(0)
+  isOnline    Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  verificationStatus     VerificationStatus @default(UNVERIFIED)
+  nationalIdNumber       String?            @unique
+  nationalIdPath         String?
+  traderLicensePath      String?
+  mobileMoneyLicensePath String?
+  faceScanPath           String?
+  submittedAt            DateTime?
+  reviewedAt             DateTime?
+  rejectionReason        String?
+
+  assignedRequests CashRequest[]    @relation("AssignedAgent")
+  requestAttempts  RequestAttempt[]
+}
+
+model CashRequest {
+  id              String        @id @default(uuid())
+  customerId      String
+  customer        User          @relation("CustomerRequests", fields: [customerId], references: [id])
+  type            RequestType
+  network         Network
+  amount          Float
+  lat             Float
+  lng             Float
+  note            String?
+  status          RequestStatus @default(PENDING)
+  assignedAgentId String?
+  assignedAgent   AgentProfile? @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  acceptDeadline  DateTime?
+  createdAt       DateTime      @default(now())
+  calledAt        DateTime?
+  completedAt     DateTime?
+
+  attempts RequestAttempt[]
+}
+
+model RequestAttempt {
+  id          String         @id @default(uuid())
+  requestId   String
+  request     CashRequest    @relation(fields: [requestId], references: [id])
+  agentId     String
+  agent       AgentProfile   @relation(fields: [agentId], references: [id])
+  outcome     AttemptOutcome @default(OFFERED)
+  offeredAt   DateTime       @default(now())
+  respondedAt DateTime?
+
+  @@index([requestId])
+}

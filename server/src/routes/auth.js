@@ -1,0 +1,176 @@
+const express = require("express");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const prisma = require("../prisma");
+const otp = require("../utils/otp");
+
+const router = express.Router();
+
+function signToken(user) {
+  return jwt.sign(
+    { id: user.id, role: user.role, name: user.name },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+}
+
+async function issueOtp(userId, phone) {
+  const code = otp.generateCode();
+  const codeHash = await otp.hashCode(code);
+  await prisma.phoneOtp.create({
+    data: {
+      userId,
+      codeHash,
+      expiresAt: new Date(Date.now() + otp.OTP_TTL_MS),
+    },
+  });
+  otp.sendOtpSms(phone, code);
+  // No SMS provider is wired up yet, so hand the code back to the client in
+  // non-production so the flow is actually testable end to end.
+  return process.env.NODE_ENV === "production" ? undefined : code;
+}
+
+router.post("/register", async (req, res) => {
+  const { name, email, phone, password, role } = req.body;
+
+  if (!name || !email || !phone || !password || !role) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+  if (!["CUSTOMER", "AGENT"].includes(role)) {
+    return res.status(400).json({ error: "role must be CUSTOMER or AGENT" });
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return res.status(409).json({ error: "Email already registered" });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const user = await prisma.user.create({
+    data: { name, email, phone, passwordHash, role, phoneVerified: false },
+  });
+
+  if (role === "AGENT") {
+    await prisma.agentProfile.create({
+      data: {
+        userId: user.id,
+        lat: 0,
+        lng: 0,
+        radiusKm: 5,
+        cashOnHand: 0,
+        airtelFloat: 0,
+        mtnFloat: 0,
+        isOnline: false,
+      },
+    });
+  }
+
+  const devCode = await issueOtp(user.id, user.phone);
+  res.status(201).json({
+    requiresOtp: true,
+    userId: user.id,
+    phone: user.phone,
+    ...(devCode ? { devCode } : {}),
+  });
+});
+
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: "email and password are required" });
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) return res.status(401).json({ error: "Invalid credentials" });
+
+  if (!user.phoneVerified) {
+    const devCode = await issueOtp(user.id, user.phone);
+    return res.status(403).json({
+      error: "Phone number not verified",
+      requiresOtp: true,
+      userId: user.id,
+      phone: user.phone,
+      ...(devCode ? { devCode } : {}),
+    });
+  }
+
+  const token = signToken(user);
+  res.json({
+    token,
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+  });
+});
+
+router.post("/verify-otp", async (req, res) => {
+  const { userId, code } = req.body;
+  if (!userId || !code) {
+    return res.status(400).json({ error: "userId and code are required" });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const record = await prisma.phoneOtp.findFirst({
+    where: { userId, consumedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!record) {
+    return res.status(400).json({ error: "No pending code. Request a new one." });
+  }
+  if (record.expiresAt < new Date()) {
+    return res.status(400).json({ error: "Code has expired. Request a new one." });
+  }
+  if (record.attempts >= otp.MAX_ATTEMPTS) {
+    return res.status(429).json({ error: "Too many attempts. Request a new code." });
+  }
+
+  const valid = await otp.compareCode(String(code).trim(), record.codeHash);
+  if (!valid) {
+    await prisma.phoneOtp.update({
+      where: { id: record.id },
+      data: { attempts: { increment: 1 } },
+    });
+    return res.status(401).json({ error: "Incorrect code" });
+  }
+
+  await prisma.$transaction([
+    prisma.phoneOtp.update({ where: { id: record.id }, data: { consumedAt: new Date() } }),
+    prisma.user.update({ where: { id: user.id }, data: { phoneVerified: true } }),
+  ]);
+
+  const token = signToken(user);
+  res.json({
+    token,
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+  });
+});
+
+router.post("/resend-otp", async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: "userId is required" });
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return res.status(404).json({ error: "User not found" });
+  if (user.phoneVerified) {
+    return res.status(409).json({ error: "Phone is already verified" });
+  }
+
+  const last = await prisma.phoneOtp.findFirst({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+  if (last && Date.now() - last.createdAt.getTime() < otp.RESEND_COOLDOWN_MS) {
+    const retryAfter = Math.ceil(
+      (otp.RESEND_COOLDOWN_MS - (Date.now() - last.createdAt.getTime())) / 1000
+    );
+    return res.status(429).json({ error: "Please wait before requesting another code", retryAfter });
+  }
+
+  const devCode = await issueOtp(user.id, user.phone);
+  res.json({ requiresOtp: true, userId: user.id, phone: user.phone, ...(devCode ? { devCode } : {}) });
+});
+
+module.exports = router;
