@@ -23,7 +23,7 @@ export default function Login() {
       const data = err.response?.data;
       if (data?.requiresOtp) {
         navigate("/verify-otp", {
-          state: { userId: data.userId, phone: data.phone, devCode: data.devCode },
+          state: { userId: data.userId, email: data.email, devCode: data.devCode },
         });
         return;
       }

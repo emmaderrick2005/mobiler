@@ -14,7 +14,7 @@ function signToken(user) {
   );
 }
 
-async function issueOtp(userId, phone) {
+async function issueOtp(userId, recipientEmail) {
   const code = otp.generateCode();
   const codeHash = await otp.hashCode(code);
   await prisma.phoneOtp.create({
@@ -24,9 +24,9 @@ async function issueOtp(userId, phone) {
       expiresAt: new Date(Date.now() + otp.OTP_TTL_MS),
     },
   });
-  await otp.sendOtpSms(phone, code);
+  await otp.sendOtpEmail(recipientEmail, code);
   // Hand the code back to the client only when explicitly opted into (see
-  // otp.devCodeEnabled) — lets the flow be tested without a real SMS
+  // otp.devCodeEnabled) — lets the flow be tested without a real email
   // account, without leaking codes once deployed for real users.
   return otp.devCodeEnabled() ? code : undefined;
 }
@@ -112,11 +112,11 @@ router.post("/register", async (req, res) => {
     });
   }
 
-  const devCode = await issueOtp(user.id, user.phone);
+  const devCode = await issueOtp(user.id, user.email);
   res.status(201).json({
     requiresOtp: true,
     userId: user.id,
-    phone: user.phone,
+    email: user.email,
     ...(devCode ? { devCode } : {}),
   });
 });
@@ -134,12 +134,12 @@ router.post("/login", async (req, res) => {
   if (!valid) return res.status(401).json({ error: "Invalid credentials" });
 
   if (!user.phoneVerified) {
-    const devCode = await issueOtp(user.id, user.phone);
+    const devCode = await issueOtp(user.id, user.email);
     return res.status(403).json({
-      error: "Phone number not verified",
+      error: "Email not verified",
       requiresOtp: true,
       userId: user.id,
-      phone: user.phone,
+      email: user.email,
       ...(devCode ? { devCode } : {}),
     });
   }
@@ -179,14 +179,14 @@ router.post("/resend-otp", async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return res.status(404).json({ error: "User not found" });
   if (user.phoneVerified) {
-    return res.status(409).json({ error: "Phone is already verified" });
+    return res.status(409).json({ error: "Email is already verified" });
   }
 
   const cooldown = await checkResendCooldown(userId);
   if (cooldown) return res.status(429).json(cooldown);
 
-  const devCode = await issueOtp(user.id, user.phone);
-  res.json({ requiresOtp: true, userId: user.id, phone: user.phone, ...(devCode ? { devCode } : {}) });
+  const devCode = await issueOtp(user.id, user.email);
+  res.json({ requiresOtp: true, userId: user.id, email: user.email, ...(devCode ? { devCode } : {}) });
 });
 
 router.post("/forgot-password", async (req, res) => {
@@ -199,8 +199,8 @@ router.post("/forgot-password", async (req, res) => {
   const cooldown = await checkResendCooldown(user.id);
   if (cooldown) return res.status(429).json(cooldown);
 
-  const devCode = await issueOtp(user.id, user.phone);
-  res.json({ requiresOtp: true, userId: user.id, phone: user.phone, ...(devCode ? { devCode } : {}) });
+  const devCode = await issueOtp(user.id, user.email);
+  res.json({ requiresOtp: true, userId: user.id, email: user.email, ...(devCode ? { devCode } : {}) });
 });
 
 router.post("/reset-password", async (req, res) => {

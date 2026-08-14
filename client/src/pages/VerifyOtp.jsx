@@ -3,13 +3,13 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/ThemeToggle";
 import { roleHome } from "../utils/roleHome";
-import { maskPhone } from "../utils/maskPhone";
+import { maskEmail } from "../utils/maskEmail";
 
 export default function VerifyOtp() {
   const { verifyOtp, resendOtp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { userId, phone, devCode } = location.state || {};
+  const { userId, email, devCode } = location.state || {};
 
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -61,9 +61,9 @@ export default function VerifyOtp() {
       <div className="header-actions" style={{ justifyContent: "flex-end", marginBottom: 12 }}>
         <ThemeToggle />
       </div>
-      <h1>Verify your phone</h1>
+      <h1>Verify your email</h1>
       <p className="subtitle">
-        Enter the 6-digit code we sent to {maskPhone(phone)}
+        Enter the 6-digit code we sent to {maskEmail(email)}
       </p>
       <form onSubmit={handleSubmit}>
         <label>Verification code</label>

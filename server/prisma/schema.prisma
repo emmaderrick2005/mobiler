@@ -55,6 +55,9 @@ model User {
   role          Role
   // Existing rows default to true so demo/seed accounts created before OTP
   // login existed aren't locked out; registration explicitly sets this false.
+  // Named phoneVerified/PhoneOtp from when codes were sent by SMS — codes
+  // are now emailed instead (see src/utils/email.js), but this tracks the
+  // same thing: has this account completed OTP verification at all.
   phoneVerified Boolean  @default(true)
   createdAt     DateTime @default(now())
 

@@ -3,13 +3,13 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/ThemeToggle";
 import { roleHome } from "../utils/roleHome";
-import { maskPhone } from "../utils/maskPhone";
+import { maskEmail } from "../utils/maskEmail";
 
 export default function ResetPassword() {
   const { resetPassword, forgotPassword } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { userId, phone, email, devCode } = location.state || {};
+  const { userId, email, devCode } = location.state || {};
 
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -69,7 +69,7 @@ export default function ResetPassword() {
       </div>
       <h1>Reset password</h1>
       <p className="subtitle">
-        Enter the 6-digit code we sent to {maskPhone(phone)}, then choose a new password.
+        Enter the 6-digit code we sent to {maskEmail(email)}, then choose a new password.
       </p>
       <form onSubmit={handleSubmit}>
         <label>Verification code</label>

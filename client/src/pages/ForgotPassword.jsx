@@ -17,7 +17,7 @@ export default function ForgotPassword() {
     try {
       const data = await forgotPassword(email.trim());
       navigate("/reset-password", {
-        state: { userId: data.userId, phone: data.phone, devCode: data.devCode, email: email.trim() },
+        state: { userId: data.userId, email: data.email, devCode: data.devCode },
       });
     } catch (err) {
       setError(err.response?.data?.error || "Could not send a reset code");
@@ -33,7 +33,7 @@ export default function ForgotPassword() {
       </div>
       <h1>Forgot password</h1>
       <p className="subtitle">
-        Enter your account email and we'll text a reset code to the phone number on file.
+        Enter your account email and we'll send a reset code to that address.
       </p>
       <form onSubmit={handleSubmit}>
         <label>Email</label>

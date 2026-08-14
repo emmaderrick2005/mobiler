@@ -21,7 +21,7 @@ export default function Register() {
     try {
       const data = await register(form);
       navigate("/verify-otp", {
-        state: { userId: data.userId, phone: data.phone, devCode: data.devCode },
+        state: { userId: data.userId, email: data.email, devCode: data.devCode },
       });
     } catch (err) {
       setError(err.response?.data?.error || "Registration failed");
