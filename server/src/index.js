@@ -1,8 +1,9 @@
 require("dotenv").config();
 const dns = require("dns");
-// Some hosts (Render included) advertise IPv6 DNS records for services like
-// Gmail's SMTP but can't actually route IPv6 traffic, so outbound
-// connections fail with ENETUNREACH unless IPv4 is tried first.
+// Some hosts (Render included) advertise IPv6 DNS records for external
+// services but can't actually route IPv6 traffic, so outbound connections
+// fail with ENETUNREACH unless IPv4 is tried first. Kept as a general
+// safeguard for any outbound call the app makes, not just one provider.
 dns.setDefaultResultOrder("ipv4first");
 const express = require("express");
 const cors = require("cors");

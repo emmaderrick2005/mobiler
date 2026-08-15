@@ -24,7 +24,7 @@ async function issueOtp(userId, recipientEmail) {
       expiresAt: new Date(Date.now() + otp.OTP_TTL_MS),
     },
   });
-  // Fire-and-forget: a slow or hanging SMTP connection shouldn't block the
+  // Fire-and-forget: a slow or failing email provider shouldn't block the
   // register/login/forgot-password response the user is waiting on.
   otp.sendOtpEmail(recipientEmail, code).catch((err) => {
     console.error("[OTP] sendOtpEmail rejected unexpectedly", err);

@@ -24,9 +24,9 @@ function devCodeEnabled() {
   return process.env.ENABLE_DEV_OTP === "true" && process.env.NODE_ENV !== "production";
 }
 
-// Sends via SMTP when SMTP_HOST/SMTP_USER/SMTP_PASS are set (see
-// utils/email.js); otherwise falls back to a console log so the flow still
-// works end to end in local dev without a real email account.
+// Sends via Resend when RESEND_API_KEY is set (see utils/email.js);
+// otherwise falls back to a console log so the flow still works end to end
+// in local dev without a real email account.
 async function sendOtpEmail(recipientEmail, code) {
   const subject = "Your Mobiler verification code";
   const text = `Your Mobiler verification code is ${code}. It expires in ${
