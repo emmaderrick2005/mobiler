@@ -35,12 +35,12 @@ async function sendOtpEmail(recipientEmail, code) {
 
   const result = await email.sendEmail(recipientEmail, subject, text);
 
-  if (!result.sent) {
-    if (devCodeEnabled()) {
-      console.log(`[OTP] (no email provider) code ${code} for ${recipientEmail}`);
-    } else {
-      console.warn(`[OTP] Email not sent to ${recipientEmail}: ${result.reason}`);
-    }
+  if (result.sent) {
+    console.log(`[OTP] Email sent to ${recipientEmail} (messageId: ${result.response?.messageId})`);
+  } else if (devCodeEnabled()) {
+    console.log(`[OTP] (no email provider) code ${code} for ${recipientEmail}`);
+  } else {
+    console.warn(`[OTP] Email not sent to ${recipientEmail}: ${result.reason}`);
   }
 
   return result;
