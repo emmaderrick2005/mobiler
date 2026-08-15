@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/ThemeToggle";
+import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, validatePassword } from "../utils/validatePassword";
 
 export default function Register() {
   const { register } = useAuth();
@@ -17,6 +18,11 @@ export default function Register() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    const passwordError = validatePassword(form.password);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
     setLoading(true);
     try {
       const data = await register(form);
@@ -49,7 +55,14 @@ export default function Register() {
         <label>Phone</label>
         <input value={form.phone} onChange={(e) => update("phone", e.target.value)} required />
         <label>Password</label>
-        <input value={form.password} onChange={(e) => update("password", e.target.value)} type="password" required minLength={6} />
+        <input
+          value={form.password}
+          onChange={(e) => update("password", e.target.value)}
+          type="password"
+          required
+          minLength={PASSWORD_MIN_LENGTH}
+        />
+        <p className="hint">{PASSWORD_HINT}</p>
         {error && <p className="error">{error}</p>}
         <button disabled={loading} type="submit">{loading ? "Creating..." : "Create account"}</button>
       </form>

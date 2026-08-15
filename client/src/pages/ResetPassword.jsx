@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/ThemeToggle";
 import { roleHome } from "../utils/roleHome";
 import { maskEmail } from "../utils/maskEmail";
+import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, validatePassword } from "../utils/validatePassword";
 
 export default function ResetPassword() {
   const { resetPassword, forgotPassword } = useAuth();
@@ -32,6 +33,11 @@ export default function ResetPassword() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -87,15 +93,16 @@ export default function ResetPassword() {
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           type="password"
-          minLength={6}
+          minLength={PASSWORD_MIN_LENGTH}
           required
         />
+        <p className="hint">{PASSWORD_HINT}</p>
         <label>Confirm new password</label>
         <input
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           type="password"
-          minLength={6}
+          minLength={PASSWORD_MIN_LENGTH}
           required
         />
         {error && <p className="error">{error}</p>}

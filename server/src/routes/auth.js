@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const prisma = require("../prisma");
 const otp = require("../utils/otp");
+const { validatePassword } = require("../utils/password");
 
 const router = express.Router();
 
@@ -89,6 +90,10 @@ router.post("/register", async (req, res) => {
   }
   if (!["CUSTOMER", "AGENT"].includes(role)) {
     return res.status(400).json({ error: "role must be CUSTOMER or AGENT" });
+  }
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return res.status(400).json({ error: passwordError });
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -212,8 +217,9 @@ router.post("/reset-password", async (req, res) => {
   if (!userId || !code || !newPassword) {
     return res.status(400).json({ error: "userId, code, and newPassword are required" });
   }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) {
+    return res.status(400).json({ error: passwordError });
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
