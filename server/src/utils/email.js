@@ -19,7 +19,11 @@ function getClient() {
   return cachedClient;
 }
 
-async function sendEmail(to, subject, text) {
+// html is optional — Resend (and most inbox spam filters) score a
+// well-formed multipart email (text + html) more favorably than a
+// text-only one from an unfamiliar sender, though a verified custom
+// domain remains the biggest lever we don't have yet.
+async function sendEmail(to, subject, text, html) {
   const client = getClient();
   if (!client) {
     return { sent: false, reason: "no-provider-configured" };
@@ -33,6 +37,7 @@ async function sendEmail(to, subject, text) {
       to,
       subject,
       text,
+      ...(html ? { html } : {}),
     });
     if (error) {
       return { sent: false, reason: error.message || String(error) };

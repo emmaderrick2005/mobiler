@@ -29,11 +29,21 @@ function devCodeEnabled() {
 // in local dev without a real email account.
 async function sendOtpEmail(recipientEmail, code) {
   const subject = "Your Mobiler verification code";
-  const text = `Your Mobiler verification code is ${code}. It expires in ${
-    OTP_TTL_MS / 60000
-  } minutes.`;
+  const minutes = OTP_TTL_MS / 60000;
+  const text = `Your Mobiler verification code is ${code}. It expires in ${minutes} minutes.`;
+  // A well-formed text+html multipart message reads as more legitimate to
+  // spam filters than text-only — kept plain (no external images/links,
+  // no urgent language) since those are their own spam signals, especially
+  // from a sender without a verified domain yet.
+  const html = `
+    <div style="font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #1a1a1a;">
+      <p style="font-size: 15px; margin: 0 0 16px;">Your Mobiler verification code is:</p>
+      <p style="font-size: 32px; font-weight: 700; letter-spacing: 4px; margin: 0 0 16px; text-align: center; background: #f4f4f5; padding: 16px; border-radius: 8px;">${code}</p>
+      <p style="font-size: 13px; color: #6b7280; margin: 0;">This code expires in ${minutes} minutes. If you didn't request this, you can ignore this email.</p>
+    </div>
+  `.trim();
 
-  const result = await email.sendEmail(recipientEmail, subject, text);
+  const result = await email.sendEmail(recipientEmail, subject, text, html);
 
   if (result.sent) {
     console.log(`[OTP] Email sent to ${recipientEmail} (messageId: ${result.response?.messageId})`);
