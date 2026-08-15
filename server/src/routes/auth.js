@@ -24,7 +24,11 @@ async function issueOtp(userId, recipientEmail) {
       expiresAt: new Date(Date.now() + otp.OTP_TTL_MS),
     },
   });
-  await otp.sendOtpEmail(recipientEmail, code);
+  // Fire-and-forget: a slow or hanging SMTP connection shouldn't block the
+  // register/login/forgot-password response the user is waiting on.
+  otp.sendOtpEmail(recipientEmail, code).catch((err) => {
+    console.error("[OTP] sendOtpEmail rejected unexpectedly", err);
+  });
   // Hand the code back to the client only when explicitly opted into (see
   // otp.devCodeEnabled) — lets the flow be tested without a real email
   // account, without leaking codes once deployed for real users.
