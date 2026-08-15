@@ -16,6 +16,11 @@ function getTransporter() {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      // Belt-and-suspenders alongside dns.setDefaultResultOrder in
+      // index.js: some hosts resolve SMTP providers to an IPv6 address
+      // they can't actually route to (ENETUNREACH), so pin this
+      // connection to IPv4 regardless of global DNS settings.
+      family: 4,
     });
   }
   return cachedTransporter;
