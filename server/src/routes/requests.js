@@ -2,6 +2,7 @@ const express = require("express");
 const prisma = require("../prisma");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const matching = require("../services/matching");
+const { MIN_AMOUNT } = require("../utils/limits");
 
 const router = express.Router();
 
@@ -23,8 +24,11 @@ router.post("/", requireAuth, requireRole("CUSTOMER"), async (req, res) => {
   if (!["AIRTEL", "MTN"].includes(network)) {
     return res.status(400).json({ error: "network must be AIRTEL or MTN" });
   }
-  if (!amount || Number(amount) <= 0) {
-    return res.status(400).json({ error: "amount must be greater than 0" });
+  const minAmount = MIN_AMOUNT[type];
+  if (!amount || Number(amount) < minAmount) {
+    return res.status(400).json({
+      error: `${type === "WITHDRAW" ? "Withdrawal" : "Deposit"} amount must be at least UGX ${minAmount.toLocaleString()}`,
+    });
   }
   if (lat === undefined || lng === undefined) {
     return res.status(400).json({ error: "lat and lng are required" });

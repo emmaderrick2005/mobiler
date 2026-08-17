@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import LocationGate from "../../components/LocationGate";
 import StatusBadge from "../../components/StatusBadge";
 import ThemeToggle from "../../components/ThemeToggle";
+import { MIN_AMOUNT } from "../../utils/limits";
 
 function formatMoney(n) {
   return Number(n).toLocaleString();
@@ -50,6 +51,13 @@ function CustomerDashboardContent({ location }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    const minAmount = MIN_AMOUNT[type];
+    if (!amount || Number(amount) < minAmount) {
+      setError(
+        `${type === "WITHDRAW" ? "Withdrawal" : "Deposit"} amount must be at least UGX ${minAmount.toLocaleString()}`
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       await api.post("/requests", {
@@ -100,7 +108,14 @@ function CustomerDashboardContent({ location }) {
               <button type="button" className={network === "MTN" ? "active" : ""} onClick={() => setNetwork("MTN")}>MTN MoMo</button>
             </div>
             <label>Amount</label>
-            <input type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+            <input
+              type="number"
+              min={MIN_AMOUNT[type]}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+            />
+            <p className="muted">Minimum UGX {MIN_AMOUNT[type].toLocaleString()}</p>
             <label>Note (optional)</label>
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. meet at the gate" />
             <p className="muted">Meeting point: your current location ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})</p>
