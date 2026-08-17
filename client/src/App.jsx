@@ -6,6 +6,7 @@ import Register from "./pages/Register";
 import VerifyOtp from "./pages/VerifyOtp";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import CompleteGoogleProfile from "./pages/CompleteGoogleProfile";
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
 import AgentDashboard from "./pages/agent/AgentDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -21,6 +22,7 @@ export default function App() {
       <Route path="/verify-otp" element={<VerifyOtp />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/complete-google-profile" element={<CompleteGoogleProfile />} />
       <Route
         path="/customer"
         element={

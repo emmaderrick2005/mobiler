@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/ThemeToggle";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, validatePassword } from "../utils/validatePassword";
+import { roleHome } from "../utils/roleHome";
 
 export default function Register() {
-  const { register } = useAuth();
+  const { register, googleAuth } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", role: "CUSTOMER" });
   const [error, setError] = useState("");
@@ -13,6 +15,23 @@ export default function Register() {
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleGoogle(credential) {
+    setError("");
+    try {
+      const result = await googleAuth(credential);
+      if (result.needsProfile) {
+        navigate("/complete-google-profile", {
+          state: { credential, email: result.email, name: result.name, role: form.role },
+        });
+        return;
+      }
+      // A Google account matching an already-registered email just signs in.
+      navigate(roleHome(result.role));
+    } catch (err) {
+      setError(err.response?.data?.error || "Google sign-in failed");
+    }
   }
 
   async function handleSubmit(e) {
@@ -66,6 +85,7 @@ export default function Register() {
         {error && <p className="error">{error}</p>}
         <button disabled={loading} type="submit">{loading ? "Creating..." : "Create account"}</button>
       </form>
+      <GoogleSignInButton onCredential={handleGoogle} onError={setError} />
       <p className="switch">
         Already have an account? <Link to="/login">Sign in</Link>
       </p>

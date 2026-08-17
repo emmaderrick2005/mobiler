@@ -223,6 +223,28 @@ button:disabled {
   font-size: 14px;
 }
 
+.google-signin {
+  margin-top: 16px;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  font-size: 13px;
+  color: var(--text-h);
+  opacity: 0.6;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .hint {
   margin-top: 24px;
   font-size: 12px;

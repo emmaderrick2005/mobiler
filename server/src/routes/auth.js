@@ -4,6 +4,8 @@ const jwt = require("jsonwebtoken");
 const prisma = require("../prisma");
 const otp = require("../utils/otp");
 const { validatePassword } = require("../utils/password");
+const { verifyGoogleToken } = require("../utils/googleAuth");
+const crypto = require("crypto");
 
 const router = express.Router();
 
@@ -233,6 +235,103 @@ router.post("/reset-password", async (req, res) => {
     where: { id: user.id },
     data: { passwordHash, phoneVerified: true },
   });
+
+  const token = signToken(user);
+  res.json({
+    token,
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+  });
+});
+
+// Google sign-in, step 1: verify the ID token from Google Identity
+// Services. Existing accounts log straight in. New accounts can't be
+// created yet — Google doesn't hand us a phone number or a role
+// (customer/agent), so the client collects those next and calls
+// /google/complete with the same credential.
+router.post("/google", async (req, res) => {
+  const { credential } = req.body;
+  if (!credential) return res.status(400).json({ error: "credential is required" });
+
+  let profile;
+  try {
+    profile = await verifyGoogleToken(credential);
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid Google credential" });
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: profile.email } });
+  if (!user) {
+    return res.json({ needsProfile: true, email: profile.email, name: profile.name });
+  }
+
+  // Google already proved they control this inbox — at least as strong a
+  // signal as our own OTP, so don't force existing-but-unverified accounts
+  // through that flow too.
+  if (!user.phoneVerified) {
+    await prisma.user.update({ where: { id: user.id }, data: { phoneVerified: true } });
+  }
+
+  const token = signToken(user);
+  res.json({
+    token,
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+  });
+});
+
+// Google sign-in, step 2: only reached for accounts /google didn't find.
+// Re-verifies the same credential rather than trusting client-supplied
+// email/name, then creates the account with the phone/role collected in
+// between.
+router.post("/google/complete", async (req, res) => {
+  const { credential, phone, role } = req.body;
+  if (!credential || !phone || !role) {
+    return res.status(400).json({ error: "credential, phone, and role are required" });
+  }
+  if (!["CUSTOMER", "AGENT"].includes(role)) {
+    return res.status(400).json({ error: "role must be CUSTOMER or AGENT" });
+  }
+
+  let profile;
+  try {
+    profile = await verifyGoogleToken(credential);
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid Google credential" });
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email: profile.email } });
+  if (existing) {
+    return res.status(409).json({ error: "Email already registered" });
+  }
+
+  // Google accounts don't set a password — generate an unusable one so the
+  // column stays satisfied; they can set a real one later via forgot
+  // password if they ever want email+password login too.
+  const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+  const user = await prisma.user.create({
+    data: {
+      name: profile.name,
+      email: profile.email,
+      phone,
+      passwordHash,
+      role,
+      phoneVerified: true,
+    },
+  });
+
+  if (role === "AGENT") {
+    await prisma.agentProfile.create({
+      data: {
+        userId: user.id,
+        lat: 0,
+        lng: 0,
+        radiusKm: 5,
+        cashOnHand: 0,
+        airtelFloat: 0,
+        mtnFloat: 0,
+        isOnline: false,
+      },
+    });
+  }
 
   const token = signToken(user);
   res.json({

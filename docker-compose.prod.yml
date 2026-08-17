@@ -32,6 +32,7 @@ services:
       ENABLE_DEV_OTP: ${ENABLE_DEV_OTP}
       RESEND_API_KEY: ${RESEND_API_KEY}
       RESEND_FROM: ${RESEND_FROM}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     ports:
       - "4000:4000"
     volumes:
@@ -48,6 +49,7 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL}
         VITE_SOCKET_URL: ${VITE_SOCKET_URL}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
     container_name: cashdelivery-client
     restart: unless-stopped
     depends_on:

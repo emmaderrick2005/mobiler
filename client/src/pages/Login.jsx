@@ -2,15 +2,32 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/ThemeToggle";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 import { roleHome } from "../utils/roleHome";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, googleAuth } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  async function handleGoogle(credential) {
+    setError("");
+    try {
+      const result = await googleAuth(credential);
+      if (result.needsProfile) {
+        navigate("/complete-google-profile", {
+          state: { credential, email: result.email, name: result.name },
+        });
+        return;
+      }
+      navigate(roleHome(result.role));
+    } catch (err) {
+      setError(err.response?.data?.error || "Google sign-in failed");
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -48,6 +65,7 @@ export default function Login() {
         {error && <p className="error">{error}</p>}
         <button disabled={loading} type="submit">{loading ? "Signing in..." : "Sign in"}</button>
       </form>
+      <GoogleSignInButton onCredential={handleGoogle} onError={setError} />
       <p className="switch">
         <Link to="/forgot-password">Forgot password?</Link>
       </p>

@@ -15,12 +15,16 @@ export function AuthProvider({ children }) {
     return () => disconnectSocket();
   }, [user?.id]);
 
-  async function login(email, password) {
-    const { data } = await api.post("/auth/login", { email, password });
+  function setSession(data) {
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
     setUser(data.user);
     return data.user;
+  }
+
+  async function login(email, password) {
+    const { data } = await api.post("/auth/login", { email, password });
+    return setSession(data);
   }
 
   async function register(fields) {
@@ -33,10 +37,7 @@ export function AuthProvider({ children }) {
 
   async function verifyOtp(userId, code) {
     const { data } = await api.post("/auth/verify-otp", { userId, code });
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    setUser(data.user);
-    return data.user;
+    return setSession(data);
   }
 
   async function resendOtp(userId) {
@@ -51,10 +52,21 @@ export function AuthProvider({ children }) {
 
   async function resetPassword(userId, code, newPassword) {
     const { data } = await api.post("/auth/reset-password", { userId, code, newPassword });
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    setUser(data.user);
-    return data.user;
+    return setSession(data);
+  }
+
+  // Returns the logged-in user on success, or { needsProfile, email, name }
+  // if this Google account isn't registered yet — the caller routes to a
+  // short profile-completion step in that case.
+  async function googleAuth(credential) {
+    const { data } = await api.post("/auth/google", { credential });
+    if (data.needsProfile) return data;
+    return setSession(data);
+  }
+
+  async function googleComplete(credential, phone, role) {
+    const { data } = await api.post("/auth/google/complete", { credential, phone, role });
+    return setSession(data);
   }
 
   function logout() {
@@ -66,7 +78,18 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, login, register, verifyOtp, resendOtp, forgotPassword, resetPassword, logout }}
+      value={{
+        user,
+        login,
+        register,
+        verifyOtp,
+        resendOtp,
+        forgotPassword,
+        resetPassword,
+        googleAuth,
+        googleComplete,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>
