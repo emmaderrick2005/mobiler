@@ -72,7 +72,6 @@ export default function Login() {
       <p className="switch">
         No account? <Link to="/register">Register</Link>
       </p>
-      <p className="hint">Demo accounts: customer1@example.com / agent1@example.com (password123)</p>
     </div>
   );
 }
